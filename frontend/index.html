@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BookMate — Peer-to-Peer Book Marketplace</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --ink: #1a1208;
+  --paper: #faf7f2;
+  --cream: #f5efe4;
+  --warm: #e8dcc8;
+  --amber: #c8861a;
+  --amber-light: #e8a832;
+  --amber-pale: #fdf3e0;
+  --rust: #a8441a;
+  --sage: #4a6741;
+  --sky: #2c5f8a;
+  --muted: #7a6e5e;
+  --border: #ddd4c0;
+  --shadow: 0 2px 20px rgba(26,18,8,0.08);
+  --shadow-lg: 0 8px 40px rgba(26,18,8,0.14);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; }
+h1,h2,h3,h4 { font-family: 'Playfair Display', serif; }
+
+/* ── NAVBAR ── */
+nav {
+  background: var(--ink);
+  padding: 0 2rem;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+.nav-brand { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; color: var(--amber-light); cursor: pointer; letter-spacing: -0.5px; }
+.nav-brand span { color: #fff; }
+.nav-links { display: flex; gap: 0.25rem; align-items: center; }
+.nav-links button {
+  background: none; border: none; color: rgba(255,255,255,0.75); font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem; cursor: pointer; padding: 0.5rem 0.9rem; border-radius: 6px;
+  transition: all 0.2s; font-weight: 500;
+}
+.nav-links button:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.nav-links button.active { background: var(--amber); color: #fff; }
+.nav-auth { display: flex; gap: 0.5rem; align-items: center; }
+.nav-user { color: var(--amber-light); font-size: 0.875rem; font-weight: 500; }
+.btn { display: inline-flex; align-items: center; gap: 0.4rem; border: none; cursor: pointer; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-weight: 500; transition: all 0.2s; text-decoration: none; }
+.btn-primary { background: var(--amber); color: #fff; padding: 0.6rem 1.25rem; font-size: 0.9rem; }
+.btn-primary:hover { background: var(--amber-light); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(200,134,26,0.4); }
+.btn-outline { background: transparent; color: var(--amber); border: 1.5px solid var(--amber); padding: 0.55rem 1.2rem; font-size: 0.9rem; }
+.btn-outline:hover { background: var(--amber); color: #fff; }
+.btn-ghost { background: rgba(255,255,255,0.08); color: #fff; padding: 0.5rem 1rem; font-size: 0.875rem; }
+.btn-ghost:hover { background: rgba(255,255,255,0.15); }
+.btn-danger { background: #dc3545; color: #fff; padding: 0.5rem 1rem; font-size: 0.875rem; }
+.btn-sm { padding: 0.4rem 0.85rem; font-size: 0.8rem; }
+
+/* ── PAGES ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── HERO ── */
+.hero {
+  background: var(--ink);
+  padding: 5rem 2rem 4rem;
+  text-align: center;
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 30% 50%, rgba(200,134,26,0.15) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 30%, rgba(44,95,138,0.1) 0%, transparent 50%);
+}
+.hero-content { position: relative; max-width: 700px; margin: 0 auto; }
+.hero h1 { font-size: clamp(2.2rem, 5vw, 3.5rem); color: #fff; line-height: 1.15; margin-bottom: 1rem; }
+.hero h1 em { color: var(--amber-light); font-style: italic; }
+.hero p { color: rgba(255,255,255,0.65); font-size: 1.1rem; margin-bottom: 2rem; line-height: 1.7; }
+.hero-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.hero-stats { display: flex; gap: 2.5rem; justify-content: center; margin-top: 3rem; padding-top: 2.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
+.stat-num { font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; color: var(--amber-light); }
+.stat-label { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ── SEARCH BAR ── */
+.search-bar {
+  background: #fff; border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 1.25rem 1.5rem;
+  display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;
+  box-shadow: var(--shadow);
+  max-width: 900px; margin: 0 auto;
+}
+.search-bar input, .search-bar select {
+  border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem 0.9rem;
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem; background: var(--paper);
+  color: var(--ink); outline: none; transition: border-color 0.2s;
+}
+.search-bar input:focus, .search-bar select:focus { border-color: var(--amber); }
+.search-bar input { flex: 1; min-width: 200px; }
+
+/* ── CONTAINER ── */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+.section { padding: 2.5rem 0; }
+.section-title { font-size: 1.5rem; color: var(--ink); margin-bottom: 0.5rem; }
+.section-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.75rem; }
+
+/* ── BOOK GRID ── */
+.book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.25rem; }
+
+/* ── BOOK CARD ── */
+.book-card {
+  background: #fff; border-radius: 12px; border: 1px solid var(--border);
+  overflow: hidden; cursor: pointer; transition: all 0.25s;
+  display: flex; flex-direction: column;
+}
+.book-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--amber); }
+.book-cover {
+  height: 200px; background: linear-gradient(135deg, var(--cream) 0%, var(--warm) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 3rem; position: relative; overflow: hidden;
+}
+.book-cover img { width: 100%; height: 100%; object-fit: cover; }
+.book-badge {
+  position: absolute; top: 0.6rem; left: 0.6rem;
+  background: var(--amber); color: #fff; font-size: 0.7rem;
+  padding: 0.25rem 0.6rem; border-radius: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.book-badge.used { background: var(--sage); }
+.book-body { padding: 0.9rem; flex: 1; display: flex; flex-direction: column; }
+.book-title { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; line-height: 1.3; }
+.book-author { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.6rem; }
+.book-meta { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
+.book-price { font-weight: 700; font-size: 1.1rem; color: var(--amber); }
+.book-cond { font-size: 0.75rem; color: var(--muted); background: var(--cream); padding: 0.2rem 0.55rem; border-radius: 20px; }
+
+/* ── BOOK DETAIL ── */
+.book-detail-grid { display: grid; grid-template-columns: 1fr 1.6fr; gap: 2.5rem; padding: 2.5rem 0; }
+@media(max-width:768px){ .book-detail-grid { grid-template-columns: 1fr; } }
+.book-detail-cover {
+  background: linear-gradient(135deg, var(--cream), var(--warm));
+  border-radius: 16px; aspect-ratio: 3/4; max-height: 480px;
+  display: flex; align-items: center; justify-content: center; font-size: 6rem;
+  border: 1px solid var(--border); overflow: hidden; position: relative;
+}
+.book-detail-cover img { width: 100%; height: 100%; object-fit: cover; border-radius: 16px; }
+.media-thumbs { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+.media-thumb {
+  width: 60px; height: 60px; border-radius: 8px; border: 2px solid var(--border);
+  overflow: hidden; cursor: pointer; background: var(--cream); display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+}
+.media-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.media-thumb.active { border-color: var(--amber); }
+.book-detail-info h1 { font-size: 2rem; line-height: 1.2; margin-bottom: 0.4rem; }
+.book-detail-info .author { color: var(--muted); font-size: 1rem; margin-bottom: 1rem; }
+.price-tag { font-size: 2rem; font-weight: 700; color: var(--amber); font-family: 'Playfair Display', serif; }
+.tags-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+.tag { font-size: 0.78rem; padding: 0.3rem 0.75rem; border-radius: 20px; font-weight: 500; }
+.tag-amber { background: var(--amber-pale); color: var(--amber); border: 1px solid rgba(200,134,26,0.3); }
+.tag-sage { background: #edf2ec; color: var(--sage); border: 1px solid rgba(74,103,65,0.3); }
+.tag-sky { background: #e8f0f7; color: var(--sky); border: 1px solid rgba(44,95,138,0.3); }
+.seller-card { background: var(--cream); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid var(--border); margin: 1.25rem 0; }
+.seller-card h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 0.5rem; }
+.seller-info { display: flex; align-items: center; gap: 0.75rem; }
+.seller-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--amber); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 0.9rem; }
+.seller-name { font-weight: 600; font-size: 0.95rem; }
+.seller-loc { font-size: 0.8rem; color: var(--muted); }
+.action-btns { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+
+/* ── TABS ── */
+.tabs { border-bottom: 2px solid var(--border); display: flex; gap: 0; margin-bottom: 1.5rem; }
+.tab-btn {
+  padding: 0.75rem 1.25rem; background: none; border: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; font-weight: 500;
+}
+.tab-btn.active { color: var(--amber); border-bottom-color: var(--amber); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── INSIGHT CARD ── */
+.insight-card { background: var(--amber-pale); border-radius: 12px; padding: 1.5rem; border: 1px solid rgba(200,134,26,0.2); }
+.insight-card h3 { font-size: 1rem; color: var(--amber); margin-bottom: 0.75rem; }
+.insight-summary { font-size: 0.92rem; line-height: 1.7; color: var(--ink); margin-bottom: 1rem; }
+.concepts-list { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.concept-chip { background: var(--amber); color: #fff; font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 20px; }
+.difficulty-bar { display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
+.diff-pill { padding: 0.25rem 0.75rem; border-radius: 20px; font-weight: 600; font-size: 0.75rem; }
+.diff-BEGINNER { background: #d4edda; color: #155724; }
+.diff-INTERMEDIATE { background: #fff3cd; color: #856404; }
+.diff-ADVANCED { background: #f8d7da; color: #721c24; }
+
+/* ── PRICE CHART ── */
+.price-dashboard { background: #fff; border-radius: 14px; border: 1px solid var(--border); padding: 1.5rem; }
+.price-dashboard h3 { font-size: 1rem; color: var(--ink); margin-bottom: 1rem; }
+.price-savings { display: flex; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.savings-card { flex: 1; min-width: 130px; background: var(--cream); border-radius: 10px; padding: 0.9rem 1rem; border: 1px solid var(--border); }
+.savings-val { font-size: 1.4rem; font-weight: 700; font-family: 'Playfair Display', serif; }
+.savings-val.green { color: var(--sage); }
+.savings-val.amber { color: var(--amber); }
+.savings-label { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+
+/* ── CHAT ── */
+.chat-layout { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 130px); gap: 0; background: #fff; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
+.chat-sidebar { background: var(--cream); border-right: 1px solid var(--border); overflow-y: auto; }
+.chat-sidebar h3 { padding: 1.1rem 1.25rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border-bottom: 1px solid var(--border); }
+.chat-item { padding: 0.85rem 1.25rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+.chat-item:hover, .chat-item.active { background: var(--amber-pale); }
+.chat-item-title { font-weight: 600; font-size: 0.87rem; margin-bottom: 0.15rem; }
+.chat-item-sub { font-size: 0.78rem; color: var(--muted); }
+.chat-main { display: flex; flex-direction: column; }
+.chat-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: #fff; }
+.chat-header h3 { font-size: 1rem; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; background: var(--paper); }
+.msg { max-width: 68%; display: flex; flex-direction: column; }
+.msg.sent { align-self: flex-end; }
+.msg.recv { align-self: flex-start; }
+.msg-bubble { padding: 0.7rem 1rem; border-radius: 14px; font-size: 0.88rem; line-height: 1.5; }
+.msg.sent .msg-bubble { background: var(--amber); color: #fff; border-bottom-right-radius: 4px; }
+.msg.recv .msg-bubble { background: #fff; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.msg-time { font-size: 0.7rem; color: var(--muted); margin-top: 0.25rem; padding: 0 0.25rem; }
+.msg.sent .msg-time { align-self: flex-end; }
+.chat-input { padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; gap: 0.75rem; background: #fff; }
+.chat-input input { flex: 1; border: 1.5px solid var(--border); border-radius: 24px; padding: 0.65rem 1.1rem; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; outline: none; background: var(--paper); }
+.chat-input input:focus { border-color: var(--amber); }
+.chat-input button { background: var(--amber); border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.1rem; transition: all 0.2s; }
+.chat-input button:hover { background: var(--amber-light); transform: scale(1.05); }
+
+/* ── SELL FORM ── */
+.form-card { background: #fff; border-radius: 16px; border: 1px solid var(--border); padding: 2rem; box-shadow: var(--shadow); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+@media(max-width:600px){ .form-grid { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group label { font-size: 0.83rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.form-group input, .form-group select, .form-group textarea {
+  border: 1.5px solid var(--border); border-radius: 8px; padding: 0.65rem 0.9rem;
+  font-family: 'DM Sans', sans-serif; font-size: 0.92rem; color: var(--ink);
+  background: var(--paper); outline: none; transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--amber); background: #fff; }
+.form-group textarea { resize: vertical; min-height: 90px; }
+
+/* ── UPLOAD ZONE ── */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 12px; padding: 2rem;
+  text-align: center; cursor: pointer; transition: all 0.2s; background: var(--cream);
+}
+.upload-zone:hover { border-color: var(--amber); background: var(--amber-pale); }
+.upload-zone p { color: var(--muted); font-size: 0.87rem; margin-top: 0.5rem; }
+.upload-previews { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+.upload-preview { width: 80px; height: 80px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+.upload-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── AUTH MODAL ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(26,18,8,0.65);
+  z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal { background: #fff; border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 420px; box-shadow: var(--shadow-lg); }
+.modal h2 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+.modal p { color: var(--muted); font-size: 0.875rem; margin-bottom: 1.75rem; }
+.modal-form { display: flex; flex-direction: column; gap: 1rem; }
+.modal-form input {
+  border: 1.5px solid var(--border); border-radius: 8px; padding: 0.7rem 1rem;
+  font-family: 'DM Sans', sans-serif; font-size: 0.92rem; outline: none; background: var(--paper);
+}
+.modal-form input:focus { border-color: var(--amber); }
+.modal-switch { font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem; text-align: center; }
+.modal-switch a { color: var(--amber); cursor: pointer; font-weight: 500; }
+.modal-close { position: absolute; top: 1rem; right: 1rem; background: var(--cream); border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 1rem; color: var(--muted); }
+
+/* ── CHATBOT ── */
+.chatbot-fab {
+  position: fixed; bottom: 2rem; right: 2rem; z-index: 150;
+  width: 56px; height: 56px; background: var(--amber); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(200,134,26,0.5); border: none;
+  font-size: 1.4rem; transition: all 0.25s;
+}
+.chatbot-fab:hover { background: var(--amber-light); transform: scale(1.08); }
+.chatbot-window {
+  position: fixed; bottom: 6rem; right: 2rem; z-index: 150;
+  width: 340px; background: #fff; border-radius: 18px;
+  box-shadow: var(--shadow-lg); border: 1px solid var(--border);
+  display: none; flex-direction: column; overflow: hidden;
+  animation: slideUp 0.25s ease;
+}
+.chatbot-window.open { display: flex; }
+@keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+.chatbot-header { background: var(--ink); padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; }
+.chatbot-header h4 { color: #fff; font-size: 0.92rem; }
+.chatbot-header p { color: rgba(255,255,255,0.5); font-size: 0.75rem; }
+.chatbot-header button { background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 1.1rem; }
+.chatbot-msgs { flex: 1; max-height: 280px; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.bot-msg, .user-msg { max-width: 85%; padding: 0.6rem 0.85rem; border-radius: 12px; font-size: 0.83rem; line-height: 1.5; }
+.bot-msg { background: var(--cream); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 4px; }
+.user-msg { background: var(--amber); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.chatbot-input { display: flex; gap: 0.5rem; padding: 0.75rem; border-top: 1px solid var(--border); }
+.chatbot-input input { flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; font-family: 'DM Sans', sans-serif; font-size: 0.83rem; outline: none; }
+.chatbot-input input:focus { border-color: var(--amber); }
+.chatbot-input button { background: var(--amber); border: none; border-radius: 8px; padding: 0.5rem 0.75rem; color: #fff; cursor: pointer; font-size: 0.85rem; }
+.typing { display: flex; gap: 4px; align-items: center; padding: 0.5rem 0.85rem; }
+.typing span { width: 6px; height: 6px; background: var(--muted); border-radius: 50%; animation: bounce 1s infinite; }
+.typing span:nth-child(2){ animation-delay:.15s; }
+.typing span:nth-child(3){ animation-delay:.3s; }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+
+/* ── ALERT/TOAST ── */
+.toast {
+  position: fixed; top: 5rem; right: 1.5rem; z-index: 300;
+  background: var(--ink); color: #fff; padding: 0.85rem 1.25rem; border-radius: 10px;
+  font-size: 0.875rem; box-shadow: var(--shadow-lg); display: none; max-width: 320px;
+  border-left: 4px solid var(--amber);
+}
+.toast.show { display: block; animation: fadeInRight 0.3s ease; }
+.toast.error { border-left-color: var(--rust); }
+.toast.success { border-left-color: var(--sage); }
+@keyframes fadeInRight { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+/* ── LOADING ── */
+.loading { display: flex; align-items: center; justify-content: center; padding: 3rem; color: var(--muted); gap: 0.75rem; }
+.spinner { width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--amber); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── EMPTY STATE ── */
+.empty { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+.empty-icon { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.5; }
+.empty h3 { font-size: 1.2rem; color: var(--ink); margin-bottom: 0.5rem; }
+
+/* ── PAGINATION ── */
+.pagination { display: flex; gap: 0.4rem; justify-content: center; margin-top: 2rem; }
+.page-btn {
+  width: 36px; height: 36px; border-radius: 8px; border: 1.5px solid var(--border);
+  background: #fff; cursor: pointer; font-size: 0.875rem; font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s; display: flex; align-items: center; justify-content: center; color: var(--ink);
+}
+.page-btn:hover { border-color: var(--amber); color: var(--amber); }
+.page-btn.active { background: var(--amber); color: #fff; border-color: var(--amber); }
+
+/* ── PROFILE ── */
+.profile-header { background: var(--ink); padding: 2.5rem; border-radius: 16px; display: flex; gap: 1.5rem; align-items: center; color: #fff; margin-bottom: 2rem; }
+.profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: var(--amber); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 700; color: #fff; flex-shrink: 0; }
+.profile-name { font-family: 'Playfair Display', serif; font-size: 1.6rem; }
+.profile-meta { color: rgba(255,255,255,0.6); font-size: 0.875rem; margin-top: 0.25rem; }
+
+/* ── MISC ── */
+.breadcrumb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.83rem; color: var(--muted); margin-bottom: 1rem; }
+.breadcrumb span { cursor: pointer; } .breadcrumb span:hover { color: var(--amber); }
+.divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+.text-amber { color: var(--amber); }
+.text-muted { color: var(--muted); }
+.fw-bold { font-weight: 700; }
+.mt-1 { margin-top: 0.5rem; }
+.stars { color: var(--amber-light); font-size: 0.9rem; }
+.api-notice { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.82rem; color: #856404; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-brand" onclick="showPage('home')">Book<span>Mate</span></div>
+  <div class="nav-links">
+    <button onclick="showPage('home')" id="nav-home" class="active">Marketplace</button>
+    <button onclick="showPage('sell')" id="nav-sell">Sell a Book</button>
+    <button onclick="showPage('chat')" id="nav-chat">Messages</button>
+    <button onclick="showPage('profile')" id="nav-profile">My Profile</button>
+  </div>
+  <div class="nav-auth" id="nav-auth">
+    <button class="btn btn-ghost btn-sm" onclick="openModal('login')">Login</button>
+    <button class="btn btn-primary btn-sm" onclick="openModal('register')">Sign Up</button>
+  </div>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════ HOME PAGE ══════════════════ -->
+<div class="page active" id="page-home">
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-content">
+      <h1>Buy & Sell Books,<br><em>Smarter Than Ever</em></h1>
+      <p>A peer-to-peer marketplace powered by AI — discover insights, compare prices, and connect with readers near you.</p>
+      <div class="hero-btns">
+        <button class="btn btn-primary" onclick="document.getElementById('marketplace').scrollIntoView({behavior:'smooth'})">Browse Books</button>
+        <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,0.4)" onclick="openModal('register')">Start Selling</button>
+      </div>
+      <div class="hero-stats">
+        <div><div class="stat-num" id="stat-books">0</div><div class="stat-label">Books Listed</div></div>
+        <div><div class="stat-num">AI</div><div class="stat-label">Powered Insights</div></div>
+        <div><div class="stat-num">₹0</div><div class="stat-label">Commission</div></div>
+        <div><div class="stat-num">🔒</div><div class="stat-label">Secure Chat</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Marketplace -->
+  <div class="container section" id="marketplace">
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="🔍  Search by title, author…" oninput="debounceSearch()">
+      <select id="cat-filter" onchange="loadBooks()">
+        <option value="">All Categories</option>
+        <option>Fiction</option><option>Non-Fiction</option><option>Science</option>
+        <option>Technology</option><option>History</option><option>Business</option>
+        <option>Self-Help</option><option>Children</option><option>Academic</option>
+      </select>
+      <select id="sort-filter" onchange="loadBooks()">
+        <option value="">Latest First</option>
+        <option value="price_asc">Price: Low → High</option>
+        <option value="price_desc">Price: High → Low</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadBooks()">Search</button>
+    </div>
+
+    <div style="margin-top:2rem">
+      <div class="section-title" id="results-title">All Books</div>
+      <div class="section-sub" id="results-sub">Loading listings…</div>
+      <div id="books-grid" class="book-grid"></div>
+      <div id="books-loading" class="loading"><div class="spinner"></div> Loading books…</div>
+      <div id="books-empty" class="empty" style="display:none">
+        <div class="empty-icon">📚</div>
+        <h3>No books found</h3>
+        <p>Try a different search or category</p>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ BOOK DETAIL PAGE ══════════════════ -->
+<div class="page" id="page-detail">
+  <div class="container" style="padding-top:1.5rem;padding-bottom:2.5rem">
+    <div class="breadcrumb">
+      <span onclick="showPage('home')">Marketplace</span>
+      <span style="color:var(--border)">›</span>
+      <span id="detail-breadcrumb">Book Detail</span>
+    </div>
+    <div class="book-detail-grid">
+      <!-- Left: Cover + media -->
+      <div>
+        <div class="book-detail-cover" id="detail-cover">📖</div>
+        <div class="media-thumbs" id="detail-thumbs"></div>
+      </div>
+      <!-- Right: Info -->
+      <div class="book-detail-info">
+        <h1 id="detail-title">—</h1>
+        <div class="author text-muted" id="detail-author">—</div>
+        <div class="price-tag" id="detail-price">—</div>
+        <div class="tags-row" id="detail-tags"></div>
+        <p id="detail-desc" style="font-size:0.9rem;line-height:1.7;color:var(--muted)"></p>
+        <div class="seller-card">
+          <h4>Seller</h4>
+          <div class="seller-info">
+            <div class="seller-avatar" id="seller-avatar">?</div>
+            <div>
+              <div class="seller-name" id="seller-name">—</div>
+              <div class="seller-loc text-muted" id="seller-loc">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="action-btns">
+          <button class="btn btn-primary" onclick="contactSeller()" id="btn-contact">💬 Contact Seller</button>
+          <button class="btn btn-outline" onclick="toggleWishlist()" id="btn-wish">♡ Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs: Description / AI Insight / Price Dashboard -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn" onclick="switchTab('insight')">🤖 AI Insight</button>
+      <button class="tab-btn" onclick="switchTab('price')">📊 Price Dashboard</button>
+    </div>
+
+    <div class="tab-content active" id="tab-overview">
+      <p id="tab-desc-full" style="font-size:0.93rem;line-height:1.8;max-width:700px"></p>
+      <div style="margin-top:1.25rem" id="tab-specs"></div>
+    </div>
+
+    <div class="tab-content" id="tab-insight">
+      <div class="api-notice">⚡ AI insights are generated asynchronously after listing. Requires OpenAI API key in backend.</div>
+      <div id="insight-content" class="loading"><div class="spinner"></div> Loading insights…</div>
+    </div>
+
+    <div class="tab-content" id="tab-price">
+      <div class="api-notice">📊 Price comparisons are simulated. Connect real APIs for live data.</div>
+      <div id="price-content" class="loading"><div class="spinner"></div> Loading prices…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SELL PAGE ══════════════════ -->
+<div class="page" id="page-sell">
+  <div class="container section">
+    <div style="max-width:720px;margin:0 auto">
+      <h2 class="section-title">List a Book for Sale</h2>
+      <p class="section-sub">Fill in the details — our AI will auto-generate insights & price comparisons once listed.</p>
+      <div id="sell-auth-notice" style="background:var(--amber-pale);border:1px solid rgba(200,134,26,0.3);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;display:none">
+        ⚠️ Please <a href="#" onclick="openModal('login')" style="color:var(--amber);font-weight:600">login</a> or <a href="#" onclick="openModal('register')" style="color:var(--amber);font-weight:600">sign up</a> to list books.
+      </div>
+      <div class="form-card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Book Title *</label>
+            <input type="text" id="sell-title" placeholder="e.g. The Alchemist">
+          </div>
+          <div class="form-group">
+            <label>Author *</label>
+            <input type="text" id="sell-author" placeholder="e.g. Paulo Coelho">
+          </div>
+          <div class="form-group">
+            <label>ISBN</label>
+            <input type="text" id="sell-isbn" placeholder="Optional">
+          </div>
+          <div class="form-group">
+            <label>Category *</label>
+            <select id="sell-category">
+              <option value="">Select category</option>
+              <option>Fiction</option><option>Non-Fiction</option><option>Science</option>
+              <option>Technology</option><option>History</option><option>Business</option>
+              <option>Self-Help</option><option>Children</option><option>Academic</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Condition *</label>
+            <select id="sell-condition">
+              <option value="">Select condition</option>
+              <option value="NEW">New</option>
+              <option value="LIKE_NEW">Like New</option>
+              <option value="GOOD">Good</option>
+              <option value="FAIR">Fair</option>
+              <option value="POOR">Poor</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Listing Type *</label>
+            <select id="sell-type">
+              <option value="USED_BOOK">Used Book</option>
+              <option value="NEW_BOOK">New Book</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Price (₹) *</label>
+            <input type="number" id="sell-price" placeholder="e.g. 150" min="0">
+          </div>
+          <div class="form-group full">
+            <label>Description</label>
+            <textarea id="sell-desc" placeholder="Describe the book condition, any highlights, markings, etc."></textarea>
+          </div>
+          <div class="form-group full">
+            <label>Upload Photos (up to 5 images + 1 video)</label>
+            <div class="upload-zone" onclick="document.getElementById('sell-files').click()">
+              <div style="font-size:2rem">📸</div>
+              <p>Click to upload front cover, back cover, inner pages, etc.</p>
+              <p style="font-size:0.75rem;margin-top:0.25rem">JPG, PNG, MP4 accepted • Max 50MB each</p>
+            </div>
+            <input type="file" id="sell-files" multiple accept="image/*,video/mp4" style="display:none" onchange="previewFiles(event)">
+            <div class="upload-previews" id="sell-previews"></div>
+          </div>
+        </div>
+        <hr class="divider">
+        <div style="display:flex;gap:1rem;justify-content:flex-end">
+          <button class="btn btn-outline" onclick="resetSellForm()">Clear</button>
+          <button class="btn btn-primary" onclick="submitBook()" id="sell-submit">✓ List Book</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ CHAT PAGE ══════════════════ -->
+<div class="page" id="page-chat">
+  <div class="container section">
+    <h2 class="section-title">Messages</h2>
+    <div id="chat-auth-notice" style="display:none;background:var(--amber-pale);border:1px solid rgba(200,134,26,0.3);border-radius:10px;padding:1rem;margin-bottom:1.5rem">
+      Please <a href="#" onclick="openModal('login')" style="color:var(--amber);font-weight:600">login</a> to view messages.
+    </div>
+    <div class="chat-layout" id="chat-layout">
+      <div class="chat-sidebar">
+        <h3>Conversations</h3>
+        <div id="chat-list">
+          <div class="empty" style="padding:2rem 1rem">
+            <div style="font-size:2rem">💬</div>
+            <p style="font-size:0.82rem;margin-top:0.5rem">No conversations yet.<br>Contact a seller to start chatting!</p>
+          </div>
+        </div>
+      </div>
+      <div class="chat-main">
+        <div class="chat-header">
+          <h3 id="chat-book-title">Select a conversation</h3>
+          <p class="text-muted" style="font-size:0.8rem" id="chat-peer-name"></p>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+          <div class="empty" style="padding:3rem 1rem">
+            <div style="font-size:2.5rem">📚</div>
+            <p>Select a conversation or contact a seller from a book listing.</p>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input type="text" id="chat-msg-input" placeholder="Type a message…" onkeypress="if(event.key==='Enter')sendChatMessage()">
+          <button onclick="sendChatMessage()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PROFILE PAGE ══════════════════ -->
+<div class="page" id="page-profile">
+  <div class="container section">
+    <div id="profile-auth-notice" style="display:none;background:var(--amber-pale);border:1px solid rgba(200,134,26,0.3);border-radius:10px;padding:1rem;margin-bottom:1.5rem">
+      Please <a href="#" onclick="openModal('login')" style="color:var(--amber);font-weight:600">login</a> to view your profile.
+    </div>
+    <div id="profile-content" style="display:none">
+      <div class="profile-header">
+        <div class="profile-avatar" id="profile-avatar">U</div>
+        <div>
+          <div class="profile-name" id="profile-name">User Name</div>
+          <div class="profile-meta" id="profile-meta">📍 Location • ✉️ email@example.com</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="logout()" style="margin-left:auto">Logout</button>
+      </div>
+      <h3 class="section-title">My Listings</h3>
+      <div id="my-listings" class="book-grid" style="margin-top:1rem"></div>
+      <div id="my-listings-loading" class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ AUTH MODAL ══════════════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modal-login">
+      <h2>Welcome Back</h2>
+      <p>Login to your BookMate account</p>
+      <div class="modal-form">
+        <input type="email" id="login-email" placeholder="Email address">
+        <input type="password" id="login-password" placeholder="Password">
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:.8rem" onclick="doLogin()">Login →</button>
+      </div>
+      <div class="modal-switch">Don't have an account? <a onclick="switchModal('register')">Sign up</a></div>
+    </div>
+    <div id="modal-register" style="display:none">
+      <h2>Join BookMate</h2>
+      <p>Create your account to buy and sell books</p>
+      <div class="modal-form">
+        <input type="text" id="reg-name" placeholder="Full name">
+        <input type="email" id="reg-email" placeholder="Email address">
+        <input type="password" id="reg-password" placeholder="Password (min 6 chars)">
+        <input type="text" id="reg-phone" placeholder="Phone (optional)">
+        <input type="text" id="reg-location" placeholder="City / Location (optional)">
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:.8rem" onclick="doRegister()">Create Account →</button>
+      </div>
+      <div class="modal-switch">Already have an account? <a onclick="switchModal('login')">Login</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ AI CHATBOT ══════════════════ -->
+<button class="chatbot-fab" onclick="toggleChatbot()" title="AI Book Assistant">🤖</button>
+<div class="chatbot-window" id="chatbot-window">
+  <div class="chatbot-header">
+    <div>
+      <h4>📚 Book Assistant</h4>
+      <p>Powered by AI</p>
+    </div>
+    <button onclick="toggleChatbot()">✕</button>
+  </div>
+  <div class="chatbot-msgs" id="chatbot-msgs">
+    <div class="bot-msg">Hi! I'm your AI book assistant. Ask me anything — recommendations, book info, or help finding a title! 📖</div>
+  </div>
+  <div class="chatbot-input">
+    <input type="text" id="chatbot-input" placeholder="Ask about books…" onkeypress="if(event.key==='Enter')sendBotMessage()">
+    <button onclick="sendBotMessage()">Send</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════
+const API = 'http://localhost:8080/api';
+let authToken = localStorage.getItem('bm_token');
+let currentUser = JSON.parse(localStorage.getItem('bm_user') || 'null');
+let currentPage = 0;
+let totalPages = 0;
+let currentBookId = null;
+let stompClient = null;
+let activeConversation = null;
+let searchTimer = null;
+let priceChart = null;
+
+// ════════════════════════════════════════════════
+// PAGE ROUTING
+// ════════════════════════════════════════════════
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
+  const navBtn = document.getElementById('nav-' + name);
+  if (navBtn) navBtn.classList.add('active');
+  if (name === 'home') loadBooks();
+  if (name === 'sell') checkSellAuth();
+  if (name === 'chat') initChatPage();
+  if (name === 'profile') loadProfile();
+  window.scrollTo(0, 0);
+}
+
+// ════════════════════════════════════════════════
+// API HELPER
+// ════════════════════════════════════════════════
+async function api(endpoint, method = 'GET', body = null) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  };
+  if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const r = await fetch(API + endpoint, opts);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.message || 'Request failed');
+    return data;
+  } catch (e) {
+    throw e;
+  }
+}
+
+// ════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+// ════════════════════════════════════════════════
+// BOOKS — LOAD
+// ════════════════════════════════════════════════
+async function loadBooks(page = 0) {
+  currentPage = page;
+  const search = document.getElementById('search-input').value;
+  const category = document.getElementById('cat-filter').value;
+  const sort = document.getElementById('sort-filter').value;
+  document.getElementById('books-grid').innerHTML = '';
+  document.getElementById('books-loading').style.display = 'flex';
+  document.getElementById('books-empty').style.display = 'none';
+  document.getElementById('pagination').innerHTML = '';
+  let params = `?page=${page}&size=12`;
+  if (search) params += `&search=${encodeURIComponent(search)}`;
+  if (category) params += `&category=${encodeURIComponent(category)}`;
+  if (sort) params += `&sort=${sort}`;
+  try {
+    const data = await api('/books' + params);
+    document.getElementById('books-loading').style.display = 'none';
+    const books = data.data.content;
+    totalPages = data.data.totalPages;
+    document.getElementById('stat-books').textContent = data.data.totalElements;
+    document.getElementById('results-sub').textContent = `${data.data.totalElements} book(s) found`;
+    if (books.length === 0) {
+      document.getElementById('books-empty').style.display = 'block';
+      return;
+    }
+    const grid = document.getElementById('books-grid');
+    books.forEach(b => { grid.innerHTML += bookCard(b); });
+    renderPagination(page, totalPages);
+  } catch (e) {
+    document.getElementById('books-loading').style.display = 'none';
+    // Show demo books if backend not running
+    renderDemoBooks();
+  }
+}
+
+function bookCard(b) {
+  const emoji = categoryEmoji(b.category);
+  const badge = b.listingType === 'NEW_BOOK' ? 'New' : 'Used';
+  const badgeClass = b.listingType === 'NEW_BOOK' ? '' : 'used';
+  const cover = (b.mediaFiles && b.mediaFiles.length > 0)
+    ? `<img src="${b.mediaFiles[0].fileUrl}" alt="${b.title}" onerror="this.parentElement.innerHTML='${emoji}'">`
+    : emoji;
+  return `<div class="book-card" onclick="openBook(${b.id})">
+    <div class="book-cover">
+      ${cover}
+      <span class="book-badge ${badgeClass}">${badge}</span>
+    </div>
+    <div class="book-body">
+      <div class="book-title">${esc(b.title)}</div>
+      <div class="book-author">by ${esc(b.author)}</div>
+      <div class="book-meta">
+        <span class="book-price">₹${b.price}</span>
+        <span class="book-cond">${b.condition ? b.condition.replace('_',' ') : ''}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function categoryEmoji(cat) {
+  const map = { Fiction:'📖', Science:'🔬', Technology:'💻', History:'🏛️', Business:'💼', 'Self-Help':'🌟', Children:'🎈', Academic:'🎓' };
+  return map[cat] || '📚';
+}
+
+function renderPagination(current, total) {
+  if (total <= 1) return;
+  let html = '';
+  if (current > 0) html += `<button class="page-btn" onclick="loadBooks(${current-1})">‹</button>`;
+  for (let i = 0; i < total; i++) {
+    html += `<button class="page-btn${i===current?' active':''}" onclick="loadBooks(${i})">${i+1}</button>`;
+  }
+  if (current < total-1) html += `<button class="page-btn" onclick="loadBooks(${current+1})">›</button>`;
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadBooks, 400);
+}
+
+// ════════════════════════════════════════════════
+// BOOK DETAIL
+// ════════════════════════════════════════════════
+async function openBook(id) {
+  currentBookId = id;
+  showPage('detail');
+  document.getElementById('detail-cover').innerHTML = '<div class="spinner" style="width:40px;height:40px"></div>';
+  // Reset tabs
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector('.tab-btn').classList.add('active');
+  document.getElementById('tab-overview').classList.add('active');
+  document.getElementById('insight-content').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+  document.getElementById('price-content').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try {
+    const data = await api('/books/' + id);
+    const b = data.data;
+    renderBookDetail(b);
+  } catch (e) {
+    toast('Failed to load book details', 'error');
+    renderDemoDetail();
+  }
+}
+
+function renderBookDetail(b) {
+  document.getElementById('detail-breadcrumb').textContent = b.title;
+  document.getElementById('detail-title').textContent = b.title;
+  document.getElementById('detail-author').textContent = 'by ' + b.author;
+  document.getElementById('detail-price').textContent = '₹' + b.price;
+  document.getElementById('detail-desc').textContent = b.description || '';
+  document.getElementById('tab-desc-full').textContent = b.description || 'No description provided.';
+  // Specs
+  document.getElementById('tab-specs').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.75rem">
+      ${specItem('Category', b.category)}
+      ${specItem('Condition', b.condition ? b.condition.replace(/_/g,' ') : '—')}
+      ${specItem('Type', b.listingType ? b.listingType.replace('_',' ') : '—')}
+      ${specItem('ISBN', b.isbn || 'Not provided')}
+      ${specItem('Listed On', b.createdAt ? new Date(b.createdAt).toLocaleDateString() : '—')}
+    </div>`;
+  // Tags
+  const tags = document.getElementById('detail-tags');
+  tags.innerHTML = `
+    <span class="tag tag-amber">${b.category || 'Books'}</span>
+    <span class="tag tag-sage">${b.condition ? b.condition.replace(/_/g,' ') : '—'}</span>
+    <span class="tag tag-sky">${b.listingType ? b.listingType.replace('_',' ') : '—'}</span>`;
+  // Cover
+  const cover = document.getElementById('detail-cover');
+  if (b.mediaFiles && b.mediaFiles.length > 0) {
+    const first = b.mediaFiles[0];
+    if (first.mediaType === 'CONDITION_VIDEO') {
+      cover.innerHTML = `<video src="${first.fileUrl}" controls style="width:100%;height:100%;object-fit:contain;border-radius:16px"></video>`;
+    } else {
+      cover.innerHTML = `<img src="${first.fileUrl}" alt="${b.title}" style="width:100%;height:100%;object-fit:cover;border-radius:16px" onerror="this.parentElement.innerHTML='📖'">`;
+    }
+    // Thumbnails
+    const thumbs = document.getElementById('detail-thumbs');
+    thumbs.innerHTML = b.mediaFiles.map((m, i) => {
+      if (m.mediaType === 'CONDITION_VIDEO') return `<div class="media-thumb${i===0?' active':''}" onclick="setMedia('${m.fileUrl}','video',this)">▶</div>`;
+      return `<div class="media-thumb${i===0?' active':''}" onclick="setMedia('${m.fileUrl}','img',this)"><img src="${m.fileUrl}" alt="" onerror="this.innerHTML='🖼'"></div>`;
+    }).join('');
+  } else {
+    cover.innerHTML = categoryEmoji(b.category);
+    document.getElementById('detail-thumbs').innerHTML = '';
+  }
+  // Seller
+  if (b.seller) {
+    document.getElementById('seller-avatar').textContent = b.seller.name ? b.seller.name[0].toUpperCase() : '?';
+    document.getElementById('seller-name').textContent = b.seller.name || '—';
+    document.getElementById('seller-loc').textContent = b.seller.location || 'Location not set';
+  }
+}
+
+function specItem(label, val) {
+  return `<div style="background:var(--cream);border-radius:8px;padding:0.75rem;border:1px solid var(--border)">
+    <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:0.25rem">${label}</div>
+    <div style="font-weight:600;font-size:0.9rem">${val}</div>
+  </div>`;
+}
+
+function setMedia(url, type, el) {
+  document.querySelectorAll('.media-thumb').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const cover = document.getElementById('detail-cover');
+  if (type === 'video') {
+    cover.innerHTML = `<video src="${url}" controls style="width:100%;height:100%;object-fit:contain;border-radius:16px"></video>`;
+  } else {
+    cover.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:16px" onerror="this.parentElement.innerHTML='📖'">`;
+  }
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.tab-btn[onclick*="${name}"]`).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'insight') loadInsight();
+  if (name === 'price') loadPriceDashboard();
+}
+
+async function loadInsight() {
+  if (!currentBookId) return;
+  try {
+    const data = await api('/insight/' + currentBookId);
+    const insight = data.data;
+    if (!insight || !insight.summary || insight.summary.includes('not yet')) {
+      document.getElementById('insight-content').innerHTML = `
+        <div class="insight-card">
+          <h3>🤖 AI Insight</h3>
+          <p class="insight-summary">Insight is being generated in the background. This uses OpenAI GPT — please check back in a moment, or add your OPENAI_API_KEY to the backend.</p>
+        </div>`;
+      return;
+    }
+    const concepts = insight.concepts || [];
+    const diffClass = 'diff-' + (insight.difficulty || 'INTERMEDIATE');
+    document.getElementById('insight-content').innerHTML = `
+      <div class="insight-card">
+        <h3>🤖 AI Book Insight</h3>
+        <p class="insight-summary">${esc(insight.summary)}</p>
+        ${concepts.length ? `<div class="concepts-list">${concepts.map(c => `<span class="concept-chip">${esc(c.trim())}</span>`).join('')}</div>` : ''}
+        <div class="difficulty-bar">
+          <span style="color:var(--muted);font-size:0.82rem">Difficulty:</span>
+          <span class="diff-pill ${diffClass}">${insight.difficulty || '—'}</span>
+          ${insight.recommendedFor ? `<span style="color:var(--muted);font-size:0.82rem">For: ${esc(insight.recommendedFor)}</span>` : ''}
+        </div>
+        ${insight.googleRating ? `<div class="stars" style="margin-top:0.75rem">★ ${insight.googleRating} Google Rating</div>` : ''}
+        ${insight.pageCount ? `<div style="font-size:0.82rem;color:var(--muted);margin-top:0.3rem">📄 ${insight.pageCount} pages · ${insight.publishedDate || ''}</div>` : ''}
+      </div>`;
+  } catch (e) {
+    document.getElementById('insight-content').innerHTML = `<div class="empty"><div class="empty-icon">🤖</div><p>Could not load insight. Backend may not be running.</p></div>`;
+  }
+}
+
+async function loadPriceDashboard() {
+  if (!currentBookId) return;
+  try {
+    const data = await api('/price/' + currentBookId);
+    const pd = data.data;
+    if (!pd || !pd.marketPrices || pd.marketPrices.length === 0) {
+      document.getElementById('price-content').innerHTML = `<div class="empty"><p>Price data not yet available. Please check back shortly.</p></div>`;
+      return;
+    }
+    const savingsPos = pd.savings > 0;
+    document.getElementById('price-content').innerHTML = `
+      <div class="price-dashboard">
+        <h3>📊 Market Price Intelligence</h3>
+        <div class="price-savings">
+          <div class="savings-card">
+            <div class="savings-val amber">₹${pd.sellerPrice}</div>
+            <div class="savings-label">Seller Price</div>
+          </div>
+          <div class="savings-card">
+            <div class="savings-val">₹${pd.averageMarketPrice}</div>
+            <div class="savings-label">Market Average</div>
+          </div>
+          <div class="savings-card">
+            <div class="savings-val ${savingsPos?'green':''}">₹${Math.abs(pd.savings).toFixed(2)}</div>
+            <div class="savings-label">${savingsPos?'You Save':'Premium'} (${Math.abs(pd.savingsPercent).toFixed(1)}%)</div>
+          </div>
+        </div>
+        <canvas id="price-chart" height="180"></canvas>
+        <div style="margin-top:1.25rem">
+          ${pd.marketPrices.map(p => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border)">
+              <span style="font-weight:500">${p.platform}</span>
+              <span style="font-weight:700;color:${parseFloat(p.price)<=parseFloat(pd.sellerPrice)?'var(--sage)':'var(--rust)'}"">₹${parseFloat(p.price).toFixed(2)}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    // Draw chart
+    if (priceChart) priceChart.destroy();
+    const ctx = document.getElementById('price-chart').getContext('2d');
+    priceChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['This Listing', ...pd.marketPrices.map(p => p.platform)],
+        datasets: [{
+          label: 'Price (₹)',
+          data: [pd.sellerPrice, ...pd.marketPrices.map(p => p.price)],
+          backgroundColor: ['#c8861a', ...pd.marketPrices.map(() => '#4a6741')],
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: false, grid: { color: '#eee' } } }
+      }
+    });
+  } catch (e) {
+    document.getElementById('price-content').innerHTML = `<div class="empty"><p>Could not load price data. Backend may not be running.</p></div>`;
+  }
+}
+
+// ════════════════════════════════════════════════
+// SELL
+// ════════════════════════════════════════════════
+function checkSellAuth() {
+  document.getElementById('sell-auth-notice').style.display = currentUser ? 'none' : 'block';
+}
+
+function previewFiles(event) {
+  const previews = document.getElementById('sell-previews');
+  previews.innerHTML = '';
+  Array.from(event.target.files).slice(0, 6).forEach(f => {
+    if (f.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        previews.innerHTML += `<div class="upload-preview"><img src="${e.target.result}" alt=""></div>`;
+      };
+      reader.readAsDataURL(f);
+    } else {
+      previews.innerHTML += `<div class="upload-preview" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem">🎬</div>`;
+    }
+  });
+}
+
+async function submitBook() {
+  if (!currentUser) { openModal('login'); return; }
+  const title = document.getElementById('sell-title').value.trim();
+  const author = document.getElementById('sell-author').value.trim();
+  const category = document.getElementById('sell-category').value;
+  const condition = document.getElementById('sell-condition').value;
+  const listingType = document.getElementById('sell-type').value;
+  const price = parseFloat(document.getElementById('sell-price').value);
+  if (!title || !author || !category || !condition || !listingType || isNaN(price)) {
+    toast('Please fill all required fields', 'error'); return;
+  }
+  const btn = document.getElementById('sell-submit');
+  btn.textContent = 'Listing…'; btn.disabled = true;
+  try {
+    const data = await api('/books', 'POST', {
+      title, author, category, condition, listingType,
+      price, description: document.getElementById('sell-desc').value,
+      isbn: document.getElementById('sell-isbn').value
+    });
+    const bookId = data.data.id;
+    // Upload files if any
+    const files = document.getElementById('sell-files').files;
+    if (files.length > 0) {
+      const typeMap = ['FRONT_IMAGE','BACK_IMAGE','INNER_PAGES','CONDITION_IMAGE','CONDITION_IMAGE','CONDITION_VIDEO'];
+      for (let i = 0; i < Math.min(files.length, 6); i++) {
+        const fd = new FormData();
+        fd.append('file', files[i]);
+        fd.append('type', files[i].type.startsWith('video') ? 'CONDITION_VIDEO' : (typeMap[i]||'CONDITION_IMAGE'));
+        await fetch(`${API}/media/upload/${bookId}`, { method:'POST', headers:{'Authorization':'Bearer '+authToken}, body:fd });
+      }
+    }
+    toast('Book listed successfully! AI insights generating…', 'success');
+    resetSellForm();
+    setTimeout(() => showPage('home'), 1500);
+  } catch (e) {
+    toast('Failed to list book: ' + e.message, 'error');
+  }
+  btn.textContent = '✓ List Book'; btn.disabled = false;
+}
+
+function resetSellForm() {
+  ['sell-title','sell-author','sell-isbn','sell-price','sell-desc'].forEach(id => document.getElementById(id).value = '');
+  ['sell-category','sell-condition'].forEach(id => document.getElementById(id).selectedIndex = 0);
+  document.getElementById('sell-previews').innerHTML = '';
+  document.getElementById('sell-files').value = '';
+}
+
+// ════════════════════════════════════════════════
+// CHAT
+// ════════════════════════════════════════════════
+function initChatPage() {
+  if (!currentUser) {
+    document.getElementById('chat-auth-notice').style.display = 'block';
+    document.getElementById('chat-layout').style.display = 'none';
+    return;
+  }
+  document.getElementById('chat-auth-notice').style.display = 'none';
+  document.getElementById('chat-layout').style.display = 'grid';
+  connectWebSocket();
+}
+
+function connectWebSocket() {
+  if (stompClient && stompClient.connected) return;
+  try {
+    const sock = new SockJS('http://localhost:8080/ws');
+    stompClient = Stomp.over(sock);
+    stompClient.debug = null;
+    stompClient.connect({ 'Authorization': 'Bearer ' + authToken }, frame => {
+      stompClient.subscribe('/user/queue/messages', msg => {
+        const data = JSON.parse(msg.body);
+        if (activeConversation && data.bookId === activeConversation.bookId) {
+          appendMessage({ message: data.message, senderName: data.senderName, sent: false, timestamp: new Date() });
+        }
+      });
+    }, () => { /* silently fail if backend not running */ });
+  } catch(e) {}
+}
+
+function contactSeller() {
+  if (!currentUser) { openModal('login'); return; }
+  showPage('chat');
+  // Pre-fill conversation
+  const bookId = currentBookId;
+  const sellerName = document.getElementById('seller-name').textContent;
+  const bookTitle = document.getElementById('detail-title').textContent;
+  // Store pending conversation
+  window._pendingChat = { bookId, bookTitle, sellerName };
+  loadChatConversation();
+}
+
+function loadChatConversation() {
+  if (!window._pendingChat) return;
+  const { bookId, bookTitle, sellerName } = window._pendingChat;
+  document.getElementById('chat-book-title').textContent = bookTitle;
+  document.getElementById('chat-peer-name').textContent = 'Chatting with ' + sellerName;
+  activeConversation = { bookId, sellerName };
+  // Add to sidebar
+  const list = document.getElementById('chat-list');
+  const existing = list.querySelector(`[data-book="${bookId}"]`);
+  if (!existing) {
+    const item = document.createElement('div');
+    item.className = 'chat-item active';
+    item.dataset.book = bookId;
+    item.innerHTML = `<div class="chat-item-title">${esc(bookTitle)}</div><div class="chat-item-sub">${esc(sellerName)}</div>`;
+    list.appendChild(item);
+  }
+  document.getElementById('chat-messages').innerHTML = '';
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chat-msg-input');
+  const msg = input.value.trim();
+  if (!msg || !currentUser) return;
+  if (!activeConversation) { toast('Select a conversation first', 'error'); return; }
+  input.value = '';
+  appendMessage({ message: msg, sent: true, timestamp: new Date() });
+  try {
+    await api('/chat/send', 'POST', {
+      senderId: currentUser.userId,
+      receiverId: 1, // Placeholder — real app resolves from seller data
+      bookId: activeConversation.bookId,
+      message: msg
+    });
+  } catch (e) {
+    // Message shown locally even if backend unreachable
+  }
+}
+
+function appendMessage({ message, sent, timestamp }) {
+  const msgs = document.getElementById('chat-messages');
+  const time = timestamp ? new Date(timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+  const div = document.createElement('div');
+  div.className = 'msg ' + (sent ? 'sent' : 'recv');
+  div.innerHTML = `<div class="msg-bubble">${esc(message)}</div><div class="msg-time">${time}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ════════════════════════════════════════════════
+// PROFILE
+// ════════════════════════════════════════════════
+async function loadProfile() {
+  if (!currentUser) {
+    document.getElementById('profile-auth-notice').style.display = 'block';
+    document.getElementById('profile-content').style.display = 'none';
+    return;
+  }
+  document.getElementById('profile-auth-notice').style.display = 'none';
+  document.getElementById('profile-content').style.display = 'block';
+  document.getElementById('profile-avatar').textContent = (currentUser.name || 'U')[0].toUpperCase();
+  document.getElementById('profile-name').textContent = currentUser.name || '—';
+  document.getElementById('profile-meta').textContent = '✉️ ' + (currentUser.email || '');
+  document.getElementById('my-listings-loading').style.display = 'flex';
+  document.getElementById('my-listings').innerHTML = '';
+  try {
+    const data = await api('/books/my');
+    document.getElementById('my-listings-loading').style.display = 'none';
+    const books = data.data || [];
+    if (books.length === 0) {
+      document.getElementById('my-listings').innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📚</div><h3>No listings yet</h3><p>List your first book!</p><button class="btn btn-primary" style="margin-top:1rem" onclick="showPage('sell')">Sell a Book</button></div>`;
+      return;
+    }
+    books.forEach(b => {
+      document.getElementById('my-listings').innerHTML += bookCardWithDelete(b);
+    });
+  } catch (e) {
+    document.getElementById('my-listings-loading').style.display = 'none';
+    document.getElementById('my-listings').innerHTML = `<div class="empty" style="grid-column:1/-1"><p>Could not load listings. Is the backend running?</p></div>`;
+  }
+}
+
+function bookCardWithDelete(b) {
+  return `<div class="book-card">
+    <div class="book-cover" onclick="openBook(${b.id})">
+      ${categoryEmoji(b.category)}
+      <span class="book-badge${b.listingType==='USED_BOOK'?' used':''}">${b.listingType==='NEW_BOOK'?'New':'Used'}</span>
+    </div>
+    <div class="book-body">
+      <div class="book-title">${esc(b.title)}</div>
+      <div class="book-author">by ${esc(b.author)}</div>
+      <div class="book-meta">
+        <span class="book-price">₹${b.price}</span>
+        <button class="btn btn-danger btn-sm" onclick="deleteBook(event,${b.id})">Delete</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function deleteBook(event, id) {
+  event.stopPropagation();
+  if (!confirm('Remove this listing?')) return;
+  try {
+    await api('/books/' + id, 'DELETE');
+    toast('Listing removed', 'success');
+    loadProfile();
+  } catch (e) { toast('Failed to delete', 'error'); }
+}
+
+// ════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════
+function openModal(type) { document.getElementById('modal-overlay').classList.add('open'); switchModal(type); }
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function switchModal(type) {
+  document.getElementById('modal-login').style.display = type === 'login' ? 'block' : 'none';
+  document.getElementById('modal-register').style.display = type === 'register' ? 'block' : 'none';
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) { toast('Fill all fields', 'error'); return; }
+  try {
+    const data = await api('/auth/login', 'POST', { email, password });
+    saveAuth(data.data);
+    closeModal();
+    toast('Welcome back, ' + data.data.name + '!', 'success');
+    updateNavAuth();
+  } catch (e) { toast(e.message || 'Login failed', 'error'); }
+}
+
+async function doRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const phone = document.getElementById('reg-phone').value.trim();
+  const location = document.getElementById('reg-location').value.trim();
+  if (!name || !email || !password) { toast('Fill required fields', 'error'); return; }
+  try {
+    const data = await api('/auth/register', 'POST', { name, email, password, phone, location });
+    saveAuth(data.data);
+    closeModal();
+    toast('Account created! Welcome to BookMate 🎉', 'success');
+    updateNavAuth();
+  } catch (e) { toast(e.message || 'Registration failed', 'error'); }
+}
+
+function saveAuth(user) {
+  authToken = user.token;
+  currentUser = user;
+  localStorage.setItem('bm_token', authToken);
+  localStorage.setItem('bm_user', JSON.stringify(user));
+}
+
+function logout() {
+  authToken = null; currentUser = null;
+  localStorage.removeItem('bm_token'); localStorage.removeItem('bm_user');
+  updateNavAuth();
+  toast('Logged out', '');
+  showPage('home');
+}
+
+function updateNavAuth() {
+  const authDiv = document.getElementById('nav-auth');
+  if (currentUser) {
+    authDiv.innerHTML = `<span class="nav-user">👤 ${esc(currentUser.name)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>`;
+  } else {
+    authDiv.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="openModal('login')">Login</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('register')">Sign Up</button>`;
+  }
+}
+
+function toggleWishlist() {
+  const btn = document.getElementById('btn-wish');
+  if (btn.textContent.includes('♡')) {
+    btn.textContent = '♥ Saved';
+    btn.style.color = 'var(--rust)';
+    toast('Added to wishlist', 'success');
+  } else {
+    btn.textContent = '♡ Save';
+    btn.style.color = '';
+    toast('Removed from wishlist');
+  }
+}
+
+// ════════════════════════════════════════════════
+// CHATBOT
+// ════════════════════════════════════════════════
+function toggleChatbot() {
+  const w = document.getElementById('chatbot-window');
+  w.classList.toggle('open');
+}
+
+async function sendBotMessage() {
+  const input = document.getElementById('chatbot-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  appendBotMsg(msg, 'user');
+  const typing = document.createElement('div');
+  typing.className = 'typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  typing.id = 'typing-indicator';
+  document.getElementById('chatbot-msgs').appendChild(typing);
+  scrollBot();
+  try {
+    const data = await api('/chatbot', 'POST', { query: msg, userId: currentUser?.userId });
+    document.getElementById('typing-indicator')?.remove();
+    appendBotMsg(data.data.answer, 'bot');
+  } catch (e) {
+    document.getElementById('typing-indicator')?.remove();
+    appendBotMsg("I'm having trouble connecting to the AI backend right now. Make sure the Spring Boot server is running with your OPENAI_API_KEY configured!", 'bot');
+  }
+}
+
+function appendBotMsg(text, who) {
+  const div = document.createElement('div');
+  div.className = who === 'bot' ? 'bot-msg' : 'user-msg';
+  div.textContent = text;
+  document.getElementById('chatbot-msgs').appendChild(div);
+  scrollBot();
+}
+
+function scrollBot() {
+  const msgs = document.getElementById('chatbot-msgs');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ════════════════════════════════════════════════
+// DEMO DATA (when backend is offline)
+// ════════════════════════════════════════════════
+function renderDemoBooks() {
+  document.getElementById('books-loading').style.display = 'none';
+  document.getElementById('results-sub').textContent = '(Demo mode — connect backend for live data)';
+  const demo = [
+    { id:1, title:'The Alchemist', author:'Paulo Coelho', category:'Fiction', condition:'GOOD', listingType:'USED_BOOK', price:120, mediaFiles:[] },
+    { id:2, title:'Atomic Habits', author:'James Clear', category:'Self-Help', condition:'LIKE_NEW', listingType:'USED_BOOK', price:250, mediaFiles:[] },
+    { id:3, title:'Clean Code', author:'Robert C. Martin', category:'Technology', condition:'GOOD', listingType:'USED_BOOK', price:350, mediaFiles:[] },
+    { id:4, title:'Sapiens', author:'Yuval Noah Harari', category:'History', condition:'NEW', listingType:'NEW_BOOK', price:499, mediaFiles:[] },
+    { id:5, title:'The Great Gatsby', author:'F. Scott Fitzgerald', category:'Fiction', condition:'FAIR', listingType:'USED_BOOK', price:80, mediaFiles:[] },
+    { id:6, title:'Thinking, Fast and Slow', author:'Daniel Kahneman', category:'Non-Fiction', condition:'GOOD', listingType:'USED_BOOK', price:180, mediaFiles:[] },
+    { id:7, title:'Zero to One', author:'Peter Thiel', category:'Business', condition:'LIKE_NEW', listingType:'USED_BOOK', price:220, mediaFiles:[] },
+    { id:8, title:'Harry Potter & Philosopher\'s Stone', author:'J.K. Rowling', category:'Fiction', condition:'GOOD', listingType:'USED_BOOK', price:150, mediaFiles:[] },
+    { id:9, title:'Introduction to Algorithms', author:'CLRS', category:'Academic', condition:'GOOD', listingType:'USED_BOOK', price:400, mediaFiles:[] },
+    { id:10, title:'The Power of Now', author:'Eckhart Tolle', category:'Self-Help', condition:'NEW', listingType:'NEW_BOOK', price:199, mediaFiles:[] },
+    { id:11, title:'1984', author:'George Orwell', category:'Fiction', condition:'FAIR', listingType:'USED_BOOK', price:90, mediaFiles:[] },
+    { id:12, title:'The Lean Startup', author:'Eric Ries', category:'Business', condition:'GOOD', listingType:'USED_BOOK', price:280, mediaFiles:[] },
+  ];
+  document.getElementById('stat-books').textContent = demo.length;
+  const grid = document.getElementById('books-grid');
+  demo.forEach(b => { grid.innerHTML += bookCard(b); });
+  document.querySelectorAll('.book-card').forEach((card, i) => {
+    card.onclick = () => renderDemoDetail(demo[i]);
+  });
+}
+
+function renderDemoDetail(b) {
+  if (!b) b = { id:1, title:'The Alchemist', author:'Paulo Coelho', category:'Fiction', condition:'GOOD', listingType:'USED_BOOK', price:120, description:"Santiago, an Andalusian shepherd boy, dreams of finding a worldly treasure. On his journey he meets a gypsy woman, a man who calls himself king, and an alchemist. All point Santiago in the direction of his quest.", isbn:'978-0062315007', mediaFiles:[], seller:{ name:'Rahul Sharma', location:'Hyderabad', email:'rahul@example.com' } };
+  showPage('detail');
+  document.getElementById('detail-breadcrumb').textContent = b.title;
+  document.getElementById('detail-title').textContent = b.title;
+  document.getElementById('detail-author').textContent = 'by ' + b.author;
+  document.getElementById('detail-price').textContent = '₹' + b.price;
+  document.getElementById('detail-desc').textContent = b.description || '';
+  document.getElementById('tab-desc-full').textContent = b.description || 'A wonderful book worth reading.';
+  document.getElementById('detail-cover').innerHTML = categoryEmoji(b.category);
+  document.getElementById('detail-thumbs').innerHTML = '';
+  document.getElementById('detail-tags').innerHTML = `
+    <span class="tag tag-amber">${b.category}</span>
+    <span class="tag tag-sage">${b.condition.replace(/_/g,' ')}</span>
+    <span class="tag tag-sky">${b.listingType.replace('_',' ')}</span>`;
+  document.getElementById('tab-specs').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.75rem">
+      ${specItem('Category', b.category)}
+      ${specItem('Condition', b.condition.replace(/_/g,' '))}
+      ${specItem('Type', b.listingType.replace('_',' '))}
+      ${specItem('ISBN', b.isbn || 'N/A')}
+      ${specItem('Listed On', new Date().toLocaleDateString())}
+    </div>`;
+  if (b.seller) {
+    document.getElementById('seller-avatar').textContent = b.seller.name[0].toUpperCase();
+    document.getElementById('seller-name').textContent = b.seller.name;
+    document.getElementById('seller-loc').textContent = b.seller.location || '';
+  }
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector('.tab-btn').classList.add('active');
+  document.getElementById('tab-overview').classList.add('active');
+  document.getElementById('insight-content').innerHTML = `
+    <div class="insight-card">
+      <h3>🤖 AI Insight (Demo)</h3>
+      <p class="insight-summary">This book is a timeless masterpiece that explores the concept of following one's personal legend. Santiago's journey serves as a metaphor for the pursuit of one's dreams, with themes of perseverance, listening to one's heart, and the unity of nature and the universe.</p>
+      <div class="concepts-list">
+        <span class="concept-chip">Personal Legend</span>
+        <span class="concept-chip">Alchemy</span>
+        <span class="concept-chip">Soul of the World</span>
+        <span class="concept-chip">Destiny</span>
+        <span class="concept-chip">Courage</span>
+      </div>
+      <div class="difficulty-bar">
+        <span style="color:var(--muted);font-size:0.82rem">Difficulty:</span>
+        <span class="diff-pill diff-BEGINNER">BEGINNER</span>
+        <span style="color:var(--muted);font-size:0.82rem">For: Anyone seeking inspiration</span>
+      </div>
+    </div>`;
+  document.getElementById('price-content').innerHTML = `
+    <div class="price-dashboard">
+      <h3>📊 Market Price Intelligence (Demo)</h3>
+      <div class="price-savings">
+        <div class="savings-card"><div class="savings-val amber">₹${b.price}</div><div class="savings-label">Seller Price</div></div>
+        <div class="savings-card"><div class="savings-val">₹280</div><div class="savings-label">Market Average</div></div>
+        <div class="savings-card"><div class="savings-val green">₹${280-b.price}</div><div class="savings-label">You Save</div></div>
+      </div>
+      <canvas id="price-chart" height="180"></canvas>
+      <div style="margin-top:1.25rem">
+        ${[['Amazon',320],['Flipkart',299],['AbeBooks',260],['ThriftBooks',240]].map(([p,price]) =>
+          `<div style="display:flex;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--border)"><span>${p}</span><span style="font-weight:700;color:${price<=b.price?'var(--sage)':'var(--rust)'}">₹${price}</span></div>`
+        ).join('')}
+      </div>
+    </div>`;
+  if (priceChart) priceChart.destroy();
+  setTimeout(() => {
+    const ctx = document.getElementById('price-chart')?.getContext('2d');
+    if (ctx) priceChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['This Listing', 'Amazon', 'Flipkart', 'AbeBooks', 'ThriftBooks'],
+        datasets: [{ label:'Price (₹)', data:[b.price,320,299,260,240], backgroundColor:['#c8861a','#4a6741','#4a6741','#4a6741','#4a6741'], borderRadius:6 }]
+      },
+      options: { responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:false } } }
+    });
+  }, 100);
+}
+
+// ════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  updateNavAuth();
+  loadBooks();
+});
+</script>
+</body>
+</html>
